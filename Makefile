@@ -2,7 +2,7 @@
 # GLOBALS                                                                       #
 #################################################################################
 
-PROJECT_NAME = canonparam
+PROJECT_NAME = CanonParam
 PYTHON_VERSION = 3.10
 PYTHON_INTERPRETER = python
 
@@ -14,8 +14,7 @@ PYTHON_INTERPRETER = python
 ## Install Python Dependencies
 .PHONY: requirements
 requirements:
-	$(PYTHON_INTERPRETER) -m pip install -U pip
-	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
+	conda env update --name $(PROJECT_NAME) --file environment.yml --prune
 	
 
 
@@ -29,14 +28,14 @@ clean:
 ## Lint using flake8 and black (use `make format` to do formatting)
 .PHONY: lint
 lint:
-	flake8 canonparam
-	isort --check --diff --profile black canonparam
-	black --check --config pyproject.toml canonparam
+	flake8 CanonParam
+	isort --check --diff --profile black CanonParam
+	black --check --config pyproject.toml CanonParam
 
 ## Format source code with black
 .PHONY: format
 format:
-	black --config pyproject.toml canonparam
+	black --config pyproject.toml CanonParam
 
 
 

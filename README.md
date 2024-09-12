@@ -4,7 +4,13 @@
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
-A short description of the project.
+To get started, clone this repository and create a new conda environment with the provided `environment.yml` file. 
+
+```
+conda env create -f environment.yml
+```
+
+See the notebooks/0.0-demo-BandParams.ipynb for a demonstration of the BandParams / CanonParams class. Haven't settled on a name yet.
 
 ## Project Organization
 
@@ -27,21 +33,21 @@ A short description of the project.
 │                         `1.0-jqp-initial-data-exploration`.
 │
 ├── pyproject.toml     <- Project configuration file with package metadata for 
-│                         canonparam and configuration for tools like black
+│                         CanonParam and configuration for tools like black
 │
 ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
 │
 ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
 │   └── figures        <- Generated graphics and figures to be used in reporting
 │
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
+├── environment.yml   <- The yml file for reproducing the analysis environment, e.g.
+│                         generated with `conda env export > environments.yml`
 │
 ├── setup.cfg          <- Configuration file for flake8
 │
-└── canonparam   <- Source code for use in this project.
+└── CanonParam   <- Source code for use in this project.
     │
-    ├── __init__.py             <- Makes canonparam a Python module
+    ├── __init__.py             <- Makes CanonParam a Python module
     │
     ├── config.py               <- Store useful variables and configuration
     │
