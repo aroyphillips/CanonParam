@@ -620,7 +620,7 @@ class ParamSpectra():
             # Convert gaussian definitions to peak parameters
             self.peak_params_ = self._create_peak_params(self.gaussian_params_)
             if self.verbose:
-                print(f"Peak parameters: {self.peak_params_}")
+                # print(f"Peak parameters: {self.peak_params_}")
                 for ii, (cf, pw, bw) in enumerate(self.peak_params_):
                     if self.log_freqs:
                         cf = np.exp(cf)
@@ -1074,6 +1074,7 @@ def constrained_gaussian_fit(freqs, power_spectrum, bands, log_freqs=False):
     Returns:
         popt (np.array): The parameters of the gaussians of shape (3*len(bands),) where the parameters are (amplitude, mean, std_dev) for each gaussian
     """
+    
     num_gaussians = len(bands)
     if log_freqs:
         freqs = np.log(freqs)
@@ -1367,6 +1368,35 @@ def _test_fit():
     out_df = convert_open_closed_fits_to_df(open_closed_fits, subjs, bands='standard', max_n_peaks=5, l_freq=0.3, h_freq=250, n_division=1, channels=channels)
     print(f"Finished testing fit, shape {out_df.shape}")
 
+def _test_get_nan_params():
+    nan_params = get_nan_params(bands='standard', max_n_peaks=5, min_peak_height=0.0, peak_threshold=2.0, aperiodic_mode='knee', prominence=0.5, l_freq=0.3, h_freq=250, n_division=1, log_freqs=False, verbose=0)
+    n_bands = len(str2band('standard', max_n_peaks=5, l_freq=0.3, h_freq=250, n_division=1)[0])
+    assert len(nan_params['aperiodic_params']) == 3, f"Number of aperiodic params {len(nan_params['aperiodic_params'])} does not match 3"
+    assert len(nan_params['gaussian_params']) == 3*n_bands, f"Number of gaussian params {len(nan_params['gaussian_params'])} does not match 3*5"
+    assert len(nan_params['peak_params']) == 3*n_bands, f"Number of peak params {len(nan_params['peak_params'])} does not match 3*5"
+    assert len(nan_params['noise_pks']) == 4, f"Number of noise pks {len(nan_params['noise_pks'])} does not match 4"
+    assert len(nan_params['noise_wids']) == 4, f"Number of noise wids {len(nan_params['noise_wids'])} does not match 4"
+    assert np.isnan(nan_params['r_squared']), f"R squared {nan_params['r_squared']} is not nan"
+    assert np.isnan(nan_params['error']), f"Error {nan_params['error']} is not nan"
+    print("Passed test get nan params")
+
+
+def extract_param_spectra(freqs, power_spectrum, bands='standard', aperiodic_mode='knee', l_freq=0.3, h_freq=250, log_freqs=True):
+    """
+    Shortcut function to extract the parameters of the power spectrum with default values
+    Inputs:
+        - freqs (np.array): The frequencies of the power spectrum
+        - power_spectrum (np.array): The power spectrum in log10 space
+        - bands (str): The bands to fit the gaussians to, e.g. 'standard'
+        - aperiodic_mode (str): The aperiodic mode to fit, e.g. 'knee'
+        - l_freq (float): The low frequency to fit  
+        - h_freq (float): The high frequency to fit
+        - log_freqs (bool): Whether to log (base e) the frequencies
+    """
+    param_spectra = ParamSpectra(bands=bands, log_freqs=log_freqs, n_division=1, l_freq=l_freq, h_freq=h_freq, prominence=0.5, linenoise=60, aperiodic_mode=aperiodic_mode, verbose=0)
+    param_spectra.fit(freqs, power_spectrum)
+    return param_spectra
+
 def main(loadpath='/shared/roy/mTBI/data_transforms/loaded_transform_data/params/params5/', num_load_subjs=1, n_jobs=1, random_load=False, \
          bands='standard', max_n_peaks=5, aperiodic_mode='knee', prominence=0.5, fs=500, l_freq=0.3, h_freq=250, n_division=1, log_freqs=False,verbose=0):
 
@@ -1394,18 +1424,6 @@ def main(loadpath='/shared/roy/mTBI/data_transforms/loaded_transform_data/params
     out_df = convert_open_closed_fits_to_df(open_closed_fits, subjs, bands=bands, max_n_peaks=max_n_peaks, l_freq=l_freq, h_freq=h_freq, n_division=n_division, channels=channels, verbose=verbose)
 
     return out_df
-
-def _test_get_nan_params():
-    nan_params = get_nan_params(bands='standard', max_n_peaks=5, min_peak_height=0.0, peak_threshold=2.0, aperiodic_mode='knee', prominence=0.5, l_freq=0.3, h_freq=250, n_division=1, log_freqs=False, verbose=0)
-    n_bands = len(str2band('standard', max_n_peaks=5, l_freq=0.3, h_freq=250, n_division=1)[0])
-    assert len(nan_params['aperiodic_params']) == 3, f"Number of aperiodic params {len(nan_params['aperiodic_params'])} does not match 3"
-    assert len(nan_params['gaussian_params']) == 3*n_bands, f"Number of gaussian params {len(nan_params['gaussian_params'])} does not match 3*5"
-    assert len(nan_params['peak_params']) == 3*n_bands, f"Number of peak params {len(nan_params['peak_params'])} does not match 3*5"
-    assert len(nan_params['noise_pks']) == 4, f"Number of noise pks {len(nan_params['noise_pks'])} does not match 4"
-    assert len(nan_params['noise_wids']) == 4, f"Number of noise wids {len(nan_params['noise_wids'])} does not match 4"
-    assert np.isnan(nan_params['r_squared']), f"R squared {nan_params['r_squared']} is not nan"
-    assert np.isnan(nan_params['error']), f"Error {nan_params['error']} is not nan"
-    print("Passed test get nan params")
 
 def _run_tests():
     _test_periodic_fit()
