@@ -6,8 +6,6 @@
 
 To get started, clone this repository and create a new conda environment with the provided `environment.yml` file. 
 
-AILA WAS HERE
-
 ```
 conda env create -f environment.yml
 ```
