@@ -108,7 +108,7 @@ class ParamSpectra():
         Attributes
         ----------
         freqs : 1d array
-            Frequency values for the power spectrum.
+            Frequency values for the power spectrum, stored in linear space.
         power_spectrum : 1d array
             Power values, stored internally in log10 scale.
         freq_range : list of [float, float]
@@ -120,11 +120,13 @@ class ParamSpectra():
         aperiodic_params_ : 1d array
             Parameters that define the aperiodic fit. As [Offset, (Knee), Exponent].
             The knee parameter is only included if aperiodic component is fit with a knee.
+            The model is y = log()
         peak_params_ : 2d array
-            Fitted parameter values for the peaks. Each row is a peak, as [CF, PW, BW].
+            Fitted parameter values for the peaks. Each row is a peak, as [CF, PW, BW]. 
         gaussian_params_ : 2d array
             Parameters that define the gaussian fit(s).
             Each row is a gaussian, as [mean, height, standard deviation].
+            If log_freqs is True, the std is in log space.
         r_squared_ : float
             R-squared of the fit between the input power spectrum and the full model fit.
         error_ : float
@@ -494,7 +496,7 @@ class ParamSpectra():
     def _simple_ap_fit(self, freqs, power_spectrum):
         # Get the guess parameters and/or calculate from the data, as needed
         #   Note that these are collected as lists, to concatenate with or without knee later
-        off_guess = [power_spectrum[0] if not self._ap_guess[0] else self._ap_guess[0]]
+        off_guess = [power_spectrum[1] if not self._ap_guess[0] else self._ap_guess[0]]
         kne_guess = [self._ap_guess[1]] if self.aperiodic_mode == 'knee' else []
         exp_guess = [np.abs((self.power_spectrum[-1] - self.power_spectrum[0]) /
                             (np.log10(self.freqs[-1]) - np.log10(self.freqs[0])))
@@ -520,7 +522,7 @@ class ParamSpectra():
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                aperiodic_params, _ = curve_fit(get_ap_func(self.aperiodic_mode),
+                aperiodic_params, _ =  curve_fit(get_ap_func(self.aperiodic_mode),
                                                 freqs, power_spectrum, p0=guess,
                                                 maxfev=self._maxfev, bounds=ap_bounds,
                                                 ftol=self._tol, xtol=self._tol, gtol=self._tol,
@@ -599,12 +601,14 @@ class ParamSpectra():
             # Find peaks, and fit them with gaussians
             self.gaussian_params_ = constrained_gaussian_fit(self.freqs, self._spectrum_flat, self.bands, log_freqs=self.log_freqs)
 
-            # Calculate the peak fit
+            # Calculate the peak fit (shape is same as power_spectrum)
             #   Note: if no peaks are found, this creates a flat (all zero) peak fit
             if self.log_freqs:
-                self._peak_fit = constrained_sum_of_gaussians(np.log(self.freqs), self.bands, self.gaussian_params_)
+                # gaussian_params = np.copy(self.gaussian_params_)
+                # gaussian_params[1::3] = np.log(gaussian_params[1::3])
+                self._peak_fit = sum_of_gaussians(np.log(self.freqs), self.bands, self.gaussian_params_)
             else:
-                self._peak_fit = constrained_sum_of_gaussians(self.freqs, self.bands, self.gaussian_params_)
+                self._peak_fit = sum_of_gaussians(self.freqs, self.bands, self.gaussian_params_)
             
             self._spectrum_peak_rm = self.power_spectrum - self._peak_fit
 
@@ -679,7 +683,21 @@ class ParamSpectra():
         for ii, peak in enumerate(gaus_copy):
 
             # Gets the index of the power_spectrum at the frequency closest to the CF of the peak
-            ind = np.argmin(np.abs(self.freqs - peak[1]))
+
+            if self.log_freqs:
+                ind = np.argmin(np.abs(np.log(self.freqs) - peak[1]))
+                # calculate the bandwidth from the log stds
+                logstd = peak[2]
+                right_edge = np.log(self.freqs[ind]) + logstd
+                left_edge = np.log(self.freqs[ind]) - logstd
+                bw = np.exp(right_edge) - np.exp(left_edge)
+
+            else:
+                ind = np.argmin(np.abs(self.freqs - peak[1]))
+                bw = peak[2] * 2 
+
+            pw = self.modeled_spectrum_[ind] - self._ap_fit[ind]
+
 
             # Collect peak parameter data
             peak_params[ii] = [peak[1], self.modeled_spectrum_[ind] - self._ap_fit[ind],
@@ -1054,11 +1072,19 @@ def gen_gaussian(x, amplitude, mean, std_dev):
     return amplitude * stats.norm.pdf(x, loc=mean, scale=std_dev)
 
 # https://stackoverflow.com/questions/16082171/curve-fitting-by-a-sum-of-gaussian-with-scipy
-def constrained_sum_of_gaussians(x, bands=None, *params):
+def sum_of_gaussians(x, bands, *params):
+    """
+    Generate a sum of gaussians
+    Inputs:
+        X - The x values (frequencies)
+        bands - The bands to fit the gaussians to, e.g. [(0, 4), (5, 10)]
+        params - The parameters of the gaussians of shape (3*len(bands),) where the parameters are (amplitude, mean, std_dev) for each gaussian
+    Outputs:
+        result - The sum of the gaussians
+    """
     result = np.zeros_like(x)
-    params = np.reshape(params, (len(bands), 3))  # Reshape the flat parameter array
+    params = np.reshape(params, (len(bands), 3))  # Reshape the flat parameter array, will fail if not 3*len(bands) parameters
     for idx in range(len(bands)):
-        # mask = np.logical_and(x > l_bound, x <= h_bound)
         result += gen_gaussian(x, *params[idx])
     return result
     
@@ -1070,17 +1096,16 @@ def constrained_gaussian_fit(freqs, power_spectrum, bands, log_freqs=False):
         freqs (np.array): The frequencies of the power spectrum
         power_spectrum (np.array): The power spectrum in log10 space
         bands (list of tuples): The bands to fit the gaussians to, e.g. [(0, 4), (5, 10)]
-        log_freqs (bool): Whether to log (base e) the frequencies
+        log_freqs (bool): Whether to log (base e) the frequencies before fitting the gaussians
     Returns:
         popt (np.array): The parameters of the gaussians of shape (3*len(bands),) where the parameters are (amplitude, mean, std_dev) for each gaussian
     """
-    
     num_gaussians = len(bands)
     if log_freqs:
         freqs = np.log(freqs)
         bands = [(np.log(l), np.log(h)) for l, h in bands]
 
-    my_func = lambda x, *params: constrained_sum_of_gaussians(x, bands, *params)
+    my_func = lambda x, *params: sum_of_gaussians(x, bands, *params)
     initial_guess = []
     bounds = []
     for l_bound, h_bound in bands:
@@ -1096,7 +1121,10 @@ def constrained_gaussian_fit(freqs, power_spectrum, bands, log_freqs=False):
     # print(f"Bounds: {[f'{n}_{i//3}:({l},{h})' for i, (n, l, h) in enumerate(zip(param_names*num_gaussians, bounds[0], bounds[1]))]}")
     # Perform curve fittin
     popt, _ = curve_fit(my_func, freqs, power_spectrum, p0=initial_guess, maxfev=10000, bounds = bounds) # params get reshaped into len(bands),3
-
+    
+    # if log_freqs:
+    #     popt = np.array(popt)
+    #     popt[1::3] = np.exp(popt[1::3]) # convert the means (center freq) back to linear space 
     return popt
 
 # # Example usage:
@@ -1116,7 +1144,7 @@ def _test_periodic_fit():
     # Extract the parameters for each Gaussian
     fit_params = np.reshape(fit_params, (num_gaussians, 3))
 
-    fitted_spectrum = constrained_sum_of_gaussians(freqs, bands, *fit_params.flatten())
+    fitted_spectrum = sum_of_gaussians(freqs, bands, *fit_params.flatten())
     assert np.allclose(fitted_spectrum, power_spectrum, atol=0.1), "Fitted spectrum does not match original spectrum"
 
 
@@ -1421,7 +1449,7 @@ def main(loadpath='/shared/roy/mTBI/data_transforms/loaded_transform_data/params
     open_closed_fits = Parallel(n_jobs=n_jobs, verbose=5)(delayed(_parallel_fit_psds)(filename, bands=bands, max_n_peaks=max_n_peaks, aperiodic_mode=aperiodic_mode, prominence=prominence, l_freq=l_freq, h_freq=h_freq, n_division=n_division, log_freqs=log_freqs,n_jobs=n_jobs, fdx=fdx, n_files=n_files, verbose=verbose) for fdx, filename in enumerate(filenames))
     # save the results: ap_params n_chan x ((offset, knee, exp), gaussian_params (n_bands, amp, mean, std), peak_params (n_bands, cf, pw, bw), r_squared (1), mape error (1), noise_ranges (4), noise_pks (4))
     
-    out_df = convert_open_closed_fits_to_df(open_closed_fits, subjs, bands=bands, max_n_peaks=max_n_peaks, l_freq=l_freq, h_freq=h_freq, n_division=n_division, channels=channels, verbose=verbose)
+    out_df = convert_open_closed_fits_to_df(open_closed_fits, subjs, bands=bands, max_n_peaks=max_n_peaks, l_freq=l_freq, h_freq=h_freq, n_division=n_division, channels=channels)
 
     return out_df
 
