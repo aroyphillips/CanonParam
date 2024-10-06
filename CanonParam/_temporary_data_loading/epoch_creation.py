@@ -61,7 +61,7 @@ def raw2epochs(subj, subjpaths, savepath=None, window_len=10, overlap=1, include
             
             
 
-def create_open_closed_dict(locd_params, savepath='/shared/roy/mTBI/data_transforms/epochs/', window_len=10, overlap=9, n_jobs=1, save=False, which_split='train', base_folder='data/tables/', max_num_subjs=None, include_ecg=False, verbosity=0):
+def create_open_closed_dict(locd_params, savepath='/shared/roy/mTBI/data_transforms/epochs/', window_len=10, overlap=9, n_jobs=1, save=False, which_split='train', tables_folder='data/tables/', max_num_subjs=None, include_ecg=False, verbosity=0):
     """ Given a params to make open/closed data, create a new pathdict with the epochs
     Inputs:
         - locd_params (dict): the parameters to pass to load_open_closed_pathdict 
@@ -86,7 +86,7 @@ def create_open_closed_dict(locd_params, savepath='/shared/roy/mTBI/data_transfo
         epochs_savepath = du.check_and_make_params_folder(savepath, epochs_params)
     subjs = list(open_closed_pathdict.keys())
     if which_split is not None:
-        split_subjs = ld.load_splits(base_folder=base_folder)[which_split]
+        split_subjs = ld.load_splits(tables_folder=tables_folder)[which_split]
         subjs = [subj for subj in subjs if int(subj) in split_subjs]
         print(f"Using {len(subjs)} subjects for {which_split} split. {len([s for s in split_subjs if str(s) not in subjs])} subjects from the {which_split} split were not found in the open_closed_pathdict")
     if max_num_subjs is not None:
@@ -98,7 +98,7 @@ def create_open_closed_dict(locd_params, savepath='/shared/roy/mTBI/data_transfo
         epoch_dict[subj] = epochs
     return epoch_dict
 
-def create_random_epochs(locd_params=None, window_len=10, epochs_per_subject=10, n_jobs=1, which_segment='both', max_num_subjs=None, which_split='train', include_ecg=False, base_folder='data/tables/', open_closed_pathdict=None):
+def create_random_epochs(locd_params=None, window_len=10, epochs_per_subject=10, n_jobs=1, which_segment='both', max_num_subjs=None, which_split='train', include_ecg=False, tables_folder='data/tables/', open_closed_pathdict=None):
     """ Given a params to make open/closed data, create a new dict of the form {subj: {'open': [epochs1, epochs2, ...], 'closed': [epochs1, epochs2, ...]}
     Inputs:
         - locd_params (dict): the parameters to pass to load_open_closed_pathdict
@@ -116,7 +116,7 @@ def create_random_epochs(locd_params=None, window_len=10, epochs_per_subject=10,
     st = time.time()
     if locd_params is not None:
         print(f"Loading open/closed pathdict for random epochs")
-        open_closed_pathdict = locd.load_open_closed_pathdict(base_folder=base_folder, **locd_params)
+        open_closed_pathdict = locd.load_open_closed_pathdict(tables_folder=tables_folder, **locd_params)
     elif open_closed_pathdict is None and locd_params is None:
         raise ValueError(f'Either locd_params or open_closed_pathdict must be provided')
 
@@ -124,8 +124,8 @@ def create_random_epochs(locd_params=None, window_len=10, epochs_per_subject=10,
     epoch_dict = {}
     subjs = list(open_closed_pathdict.keys())
     if which_split is not None:
-        internal_dir = os.path.join(os.path.dirname(base_folder[:-1]),'internal') + os.path.sep
-        split_subjs = ld.load_splits(base_folder=internal_dir)[which_split]
+        internal_dir = os.path.join(os.path.dirname(tables_folder[:-1]),'internal') + os.path.sep
+        split_subjs = ld.load_splits(internal_folder=internal_dir)[which_split]
         subjs = [subj for subj in subjs if int(subj) in split_subjs]
         print(f"Using {len(subjs)} subjects for {which_split} split. {len([s for s in split_subjs if str(s) not in subjs])} subjects from the {which_split} split were not found in the open_closed_pathdict")
     if max_num_subjs is not None:
@@ -310,7 +310,7 @@ def reorder_epoch_dict(epoch_dict):
                     raise ValueError(f'Expected epochs to be either a list or an EpochsArray, not {type(epoch_dict[subj][state])}')
     return epoch_dict
 
-def main_make_epochs(locd_params, epoch_method='random', window_len=10, overlap=9, epochs_per_subject=10, which_segment='both', savepath='/shared/roy/mTBI/data_transforms/epochs/', n_jobs=1, save=False, base_folder='data/tables/', max_num_subjs=None, which_split='train', verbosity=0):
+def main_make_epochs(locd_params, epoch_method='random', window_len=10, overlap=9, epochs_per_subject=10, which_segment='both', savepath='/shared/roy/mTBI/data_transforms/epochs/', n_jobs=1, save=False, tables_folder='data/tables/', max_num_subjs=None, which_split='train', verbosity=0):
     """ Given the parameters to make epochs, create the epochs and save them
     Inputs:
         - locd_params (dict): the parameters to pass to load_open_closed_pathdict
@@ -333,9 +333,9 @@ def main_make_epochs(locd_params, epoch_method='random', window_len=10, overlap=
         if locd_params['include_ecg']:
             include_ecg = True
     if epoch_method == 'fixed':
-        epoch_dict = create_open_closed_dict(locd_params, savepath=savepath, window_len=window_len, overlap=overlap, n_jobs=n_jobs, verbosity=verbosity, save=save, which_split=which_split, base_folder=base_folder, max_num_subjs=max_num_subjs, include_ecg=include_ecg)
+        epoch_dict = create_open_closed_dict(locd_params, savepath=savepath, window_len=window_len, overlap=overlap, n_jobs=n_jobs, verbosity=verbosity, save=save, which_split=which_split, tables_folder=tables_folder, max_num_subjs=max_num_subjs, include_ecg=include_ecg)
     elif epoch_method == 'random':
-        epoch_dict = create_random_epochs(locd_params=locd_params, window_len=window_len, epochs_per_subject=epochs_per_subject, n_jobs=n_jobs, which_segment=which_segment, max_num_subjs=max_num_subjs, which_split=which_split, include_ecg=include_ecg, base_folder=base_folder)
+        epoch_dict = create_random_epochs(locd_params=locd_params, window_len=window_len, epochs_per_subject=epochs_per_subject, n_jobs=n_jobs, which_segment=which_segment, max_num_subjs=max_num_subjs, which_split=which_split, include_ecg=include_ecg, tables_folder=tables_folder)
     else:
         raise ValueError(f'epoch_method must be either "fixed" or "random", not {epoch_method}')
     if not save:

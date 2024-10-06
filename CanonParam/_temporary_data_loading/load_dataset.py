@@ -336,7 +336,7 @@ def load_annotations(filename="start_stop_annotations.csv", tables_folder='data/
     Load the start stop annotations from the csv file
     Args:
         filename: name of the csv file
-        base_folder: folder containing the csv file
+        tables_folder: folder containing the csv file
         num_rows: number of rows to load
     Returns:
         start_stop_annotations: dataframe containing the start stop annotations
@@ -424,11 +424,11 @@ def get_ecg_channel_locations(n_subjs=None, annotations=None, col_name='ECG Loca
     return ecg_channels
 
 # now loop through each subject 
-def get_merged_csv(base_folder='../data/tables/', filename='deduped_merged_csv_files.csv'):
+def get_merged_csv(tables_folder='../data/tables/', filename='deduped_merged_csv_files.csv'):
     """
     Given a base folder and a filename, return the merged csv file
     """
-    csv_filename = os.path.join(base_folder, filename)
+    csv_filename = os.path.join(tables_folder, filename)
     merged_csv = pd.read_csv(csv_filename)
     return merged_csv
 def make_subset_from_col(df, subj_col, val_col, col_pos_opts, condition_col=None, verbose=False):
@@ -486,9 +486,9 @@ def make_subset_from_col(df, subj_col, val_col, col_pos_opts, condition_col=None
 
 def load_splits(internal_folder='data/internal/'):
     """
-    Loads the train, val, dev, holdout subjs from base_folder and returns as dictionary
+    Loads the train, val, dev, holdout subjs from tables_folder and returns as dictionary
     Args:
-        base_folder: folder containing the npy files
+        tables_folder: folder containing the npy files
     Returns:
         splits: dictionary containing the train, val, dev, holdout subjs
 

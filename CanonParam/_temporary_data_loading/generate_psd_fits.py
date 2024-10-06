@@ -43,7 +43,7 @@ def plot_param_spectra(freqs, power_spectrum, param_spectra=None, bands='standar
     plt.show()
     
 
-def extract_subject_params(subj, psddict, bands, aperiodic_mode, l_freq, h_freq, log_freqs, sdx=0, n_subjs=100, normalize_psd=False, normalize_method='median', channel_independence=False, normalize_a=None, normalize_b=None, channels=['C3','C4']):
+def extract_subject_params(subj, psddict, bands, aperiodic_mode, l_freq, h_freq, log_freqs, include_spectrums=False, sdx=0, n_subjs=100, normalize_psd=False, normalize_method='median', channel_independence=False, normalize_a=None, normalize_b=None, channels=['C3','C4']):
     """
     Finds the bandparams for a given subject
     args:
@@ -66,9 +66,11 @@ def extract_subject_params(subj, psddict, bands, aperiodic_mode, l_freq, h_freq,
     subj_params_out = {}
     times2 = []
     times3 = []
+    all_spectra = {}
     for stdx, state in enumerate(list(psddict.keys())):
         st2 = time.time()
         subj_params_out[state] = {}
+        all_spectra[state] = {}
         psd, freqs = psddict[state].get_data(return_freqs=True)
         if normalize_psd:
             print(f"Normalizing psd with: {normalize_method}, {channel_independence}, {normalize_a}, {normalize_b}")
@@ -80,19 +82,36 @@ def extract_subject_params(subj, psddict, bands, aperiodic_mode, l_freq, h_freq,
         for chdx in range(len(channels)):
             st3 = time.time()
             ch_psd = mean_psd[chdx]
-            subj_params_out[state][channels[chdx]] = extract_param_spectra(freqs, ch_psd, bands=bands, aperiodic_mode=aperiodic_mode, l_freq=l_freq, h_freq=h_freq, log_freqs=log_freqs).get_params_out()
+            fitted_bandparam = extract_param_spectra(freqs, ch_psd, bands=bands, aperiodic_mode=aperiodic_mode, l_freq=l_freq, h_freq=h_freq, log_freqs=log_freqs)
+            subj_params_out[state][channels[chdx]] = fitted_bandparam.get_params_out()
             et3 = time.time()
             times3.append(et3-st3)
+            if include_spectrums:
+                spectra = {}
+                spectra['original'] = fitted_bandparam.power_spectrum
+                try:
+                    spectra['modeled_spectrum'] = fitted_bandparam.modeled_spectrum_
+                    spectra['aperiodic_spectrum'] = fitted_bandparam._ap_fit
+                    spectra['peak_spectrum'] = fitted_bandparam._peak_fit
+                except:
+                    spectra['modeled_spectrum'] = None
+                    spectra['aperiodic_spectrum'] = None
+                    spectra['peak_spectrum'] = None
+                spectra['freqs'] = fitted_bandparam.freqs
+                all_spectra[state][channels[chdx]] = spectra
             print(f"Finished channel {channels[chdx]} ({chdx}/{len(channels)}) in {et3-st3} seconds for state {state} ({stdx+1}/{len(psddict.keys())}) for subj {subj} ({sdx}/{n_subjs})")
         et2 = time.time()
         times2.append(et2-st2)
         print(f"Finished state {state} ({stdx}/{n_subjs}) in {et2-st2} seconds for subj {subj} ({sdx+1}/{n_subjs})")
     et1 = time.time()
     print(f"Finished {subj} ({sdx}/{len(psddict.keys())}) in {et1-st1} seconds")
-    return subj, subj_params_out, et1-st1, times2, times3
+    if include_spectrums:
+        return subj, subj_params_out, et1-st1, times2, times3, all_spectra
+    else:
+        return subj, subj_params_out, et1-st1, times2, times3
 
 
-def extract_subject_fooof_params(subj, psddict, bands, aperiodic_mode, l_freq, h_freq, log_freqs, sdx=0, n_subjs=100, normalize_psd=False, normalize_method='median', channel_independence=False, normalize_a=None, normalize_b=None, channels=['C3','C4']):
+def extract_subject_fooof_params(subj, psddict, bands, aperiodic_mode, l_freq, h_freq, log_freqs, include_spectrums=False, sdx=0, n_subjs=100, normalize_psd=False, normalize_method='median', channel_independence=False, normalize_a=None, normalize_b=None, channels=['C3','C4']):
     """
     Finds the FOOOF bandparams for a given subject
     args:
@@ -115,9 +134,11 @@ def extract_subject_fooof_params(subj, psddict, bands, aperiodic_mode, l_freq, h
     subj_params_out = {}
     times2 = []
     times3 = []
+    all_spectra = {}
     for stdx, state in enumerate(list(psddict.keys())):
         st2 = time.time()
         subj_params_out[state] = {}
+        all_spectra[state] = {}
         psd, freqs = psddict[state].get_data(return_freqs=True)
         if normalize_psd:
             print(f"Normalizing psd with: {normalize_method}, {channel_independence}, {normalize_a}, {normalize_b}")
@@ -136,6 +157,8 @@ def extract_subject_fooof_params(subj, psddict, bands, aperiodic_mode, l_freq, h
                 gaus_params = fitted_fooof.get_params('gaussian_params')
                 error = fitted_fooof.get_params('error')
                 r_squared = fitted_fooof.get_params('r_squared')
+                if r_sqaured > 1 or (sdx == 45 and chdx == 15) or (sdx == 60 and chdx == 13):
+                    print(f"R squared is weird ... {r_squared} for {subj} {state} {channels[chdx]}")
             except:
                 ap_params = None
                 peak_params = None
@@ -144,6 +167,19 @@ def extract_subject_fooof_params(subj, psddict, bands, aperiodic_mode, l_freq, h
                 r_squared = None
 
             subj_params_out[state][channels[chdx]] = {'aperiodic_params': ap_params, 'peak_params': peak_params, 'gaussian_params': gaus_params, 'error': error, 'r_squared': r_squared}
+            if include_spectrums:
+                spectra = {}
+                spectra['original'] = fitted_fooof.power_spectrum
+                try:
+                    spectra['modeled_spectrum'] = fitted_fooof._ap_fit + fitted_fooof._peak_fit
+                    spectra['aperiodic_spectrum'] = fitted_fooof._ap_fit
+                    spectra['peak_spectrum'] = fitted_fooof._peak_fit
+                except:
+                    spectra['modeled_spectrum'] = None
+                    spectra['aperiodic_spectrum'] = None
+                    spectra['peak_spectrum'] = None
+                spectra['freqs'] = fitted_fooof.freqs
+                all_spectra[state][channels[chdx]] = spectra
             et3 = time.time()
             times3.append(et3-st3)
             print(f"Finished channel {channels[chdx]} ({chdx}/{len(channels)}) in {et3-st3} seconds for state {state} ({stdx+1}/{len(psddict.keys())}) for subj {subj} ({sdx}/{n_subjs})")
@@ -152,37 +188,54 @@ def extract_subject_fooof_params(subj, psddict, bands, aperiodic_mode, l_freq, h
         print(f"Finished state {state} ({stdx}/{n_subjs}) in {et2-st2} seconds for subj {subj} ({sdx+1}/{n_subjs})")
     et1 = time.time()
     print(f"Finished {subj} ({sdx}/{len(psddict.keys())}) in {et1-st1} seconds")
-    return subj, subj_params_out, et1-st1, times2, times3
+    if include_spectrums:
+        return subj, subj_params_out, et1-st1, times2, times3, all_spectra
+    else:
+        return subj, subj_params_out, et1-st1, times2, times3
 
-def extract_all_params_out_subj_level(psddict, bands='standard', n_jobs=19, aperiodic_mode='fixed', l_freq=0.3, h_freq=250, log_freqs=True, channels=['C3','C4'], normalize_psd=False, normalize_method='median', channel_independence=False, normalize_a=None, normalize_b=None):
+def extract_all_params_out_subj_level(psddict, bands='standard', n_jobs=19, include_spectrums=False, aperiodic_mode='fixed', l_freq=0.3, h_freq=250, log_freqs=True, channels=['C3','C4'], normalize_psd=False, normalize_method='median', channel_independence=False, normalize_a=None, normalize_b=None):
     all_params_out = {}
-    results = Parallel(n_jobs=n_jobs)(delayed(extract_subject_params)(subj, psddict[subj], bands, aperiodic_mode, l_freq, h_freq, log_freqs, sdx=sdx, n_subjs=len(psddict.keys()), channels=channels, normalize_psd=normalize_psd, normalize_method=normalize_method, channel_independence=channel_independence, normalize_a=normalize_a, normalize_b=normalize_b) for sdx, subj in enumerate(list(psddict.keys())))
-    times = []
-    times2 = []
-    times3 = []
-    for subj, subj_params_out, time1, subj_times2, subj_times3 in results:
+    results = Parallel(n_jobs=n_jobs)(delayed(extract_subject_params)(subj, psddict[subj], bands, aperiodic_mode, l_freq, h_freq, log_freqs, include_spectrums=include_spectrums, sdx=sdx, n_subjs=len(psddict.keys()), channels=channels, normalize_psd=normalize_psd, normalize_method=normalize_method, channel_independence=channel_independence, normalize_a=normalize_a, normalize_b=normalize_b) for sdx, subj in enumerate(list(psddict.keys())))
+    all_spectra = {}
+    total_times = {'all_times': [], 'subject_times': [], 'channel_times': []}
+    for result in results:
+        if include_spectrums:
+            subj, subj_params_out, time1, subj_times2, subj_times3, spectra = result
+        else:
+            subj, subj_params_out, time1, subj_times2, subj_times3  = result
         all_params_out[subj] = subj_params_out
-        times.append(time1)
-        times2.extend(subj_times2)
-        times3.extend(subj_times3)
-    print('Mean time per channel:', np.mean(times3))
-    return all_params_out
+        total_times['all_times'].append(time1)
+        total_times['subject_times'].extend(subj_times2)
+        total_times['channel_times'].extend(subj_times3)
+        if include_spectrums:
+            all_spectra[subj] = spectra
+
+    print('Mean time per channel:', np.mean(total_times['channel_times']))
+    print('Mean time per subject:', np.mean(total_times['subject_times']))
+    return all_params_out, total_times, all_spectra
 
 
 
-def extract_all_fooof_params_out_subj_level(psddict, bands='standard', n_jobs=19, aperiodic_mode='fixed', l_freq=0.3, h_freq=250, log_freqs=True, channels=['C3','C4'], normalize_psd=False, normalize_method='median', channel_independence=False, normalize_a=None, normalize_b=None):
+def extract_all_fooof_params_out_subj_level(psddict, bands='standard', n_jobs=19, include_spectrums=False, aperiodic_mode='fixed', l_freq=0.3, h_freq=250, log_freqs=True, channels=['C3','C4'], normalize_psd=False, normalize_method='median', channel_independence=False, normalize_a=None, normalize_b=None):
     all_params_out = {}
-    results = Parallel(n_jobs=n_jobs)(delayed(extract_subject_fooof_params)(subj, psddict[subj], bands, aperiodic_mode, l_freq, h_freq, log_freqs, sdx=sdx, n_subjs=len(psddict.keys()), channels=channels, normalize_psd=normalize_psd, normalize_method=normalize_method, channel_independence=channel_independence, normalize_a=normalize_a, normalize_b=normalize_b) for sdx, subj in enumerate(list(psddict.keys())))
-    times = []
-    times2 = []
-    times3 = []
-    for subj, subj_params_out, time1, subj_times2, subj_times3 in results:
+    results = Parallel(n_jobs=n_jobs)(delayed(extract_subject_fooof_params)(subj, psddict[subj], bands, aperiodic_mode, l_freq, h_freq, log_freqs, include_spectrums=include_spectrums, sdx=sdx, n_subjs=len(psddict.keys()), channels=channels, normalize_psd=normalize_psd, normalize_method=normalize_method, channel_independence=channel_independence, normalize_a=normalize_a, normalize_b=normalize_b) for sdx, subj in enumerate(list(psddict.keys())))
+    all_spectra = {}
+    total_times = {'all_times': [], 'subject_times': [], 'channel_times': []}
+    for result in results:
+        if include_spectrums:
+            subj, subj_params_out, time1, subj_times2, subj_times3, spectra = result
+        else:
+            subj, subj_params_out, time1, subj_times2, subj_times3  = result
         all_params_out[subj] = subj_params_out
-        times.append(time1)
-        times2.extend(subj_times2)
-        times3.extend(subj_times3)
-    print('Mean time per channel:', np.mean(times3))
-    return all_params_out
+        total_times['all_times'].append(time1)
+        total_times['subject_times'].extend(subj_times2)
+        total_times['channel_times'].extend(subj_times3)
+        if include_spectrums:
+            all_spectra[subj] = spectra
+
+    print('Mean time per channel:', np.mean(total_times['channel_times']))
+    print('Mean time per subject:', np.mean(total_times['subject_times']))
+    return all_params_out, total_times, all_spectra
 
 
 def get_bp_dfs(all_params_out, bandnames, bands, aperiodic_mode, channels=['C3', 'C4']):
@@ -314,7 +367,7 @@ def reconstruct_fooof_spectrum(freqs, aperiodic_params, gaussian_params):
     return aperiodic + peaks, peaks, aperiodic
 
 
-def main(n_jobs=1, tables_folder='data/tables/'):
+def main(n_jobs=1, tables_folder='data/tables/', include_spectrums=False):
     data_params = {
     'num_subjs': 151,
     'l_freq': 0.3,
@@ -385,7 +438,7 @@ def main(n_jobs=1, tables_folder='data/tables/'):
         'normalize_b': None,
     }
     st = time.time()
-    all_parameterized_spectra = extract_all_params_out_subj_level(psd_dict, channels=eeg_common_channels, n_jobs=8, **param_spectra_params, **psd_normalize_kwargs) 
+    all_parameterized_spectra, our_fit_times, our_fitted_spectra = extract_all_params_out_subj_level(psd_dict, channels=eeg_common_channels, n_jobs=n_jobs, include_spectrums=include_spectrums, **param_spectra_params, **psd_normalize_kwargs) 
     paramtime = time.time()-st
 
 
@@ -397,7 +450,7 @@ def main(n_jobs=1, tables_folder='data/tables/'):
 
     # fit their model
     st = time.time()
-    all_fooof_parameterized_spectra = extract_all_fooof_params_out_subj_level(psd_dict, channels=eeg_common_channels, n_jobs=8, **param_spectra_params, **psd_normalize_kwargs) 
+    all_fooof_parameterized_spectra, fooof_fit_times, fooof_fitted_spectra = extract_all_fooof_params_out_subj_level(psd_dict, channels=eeg_common_channels, n_jobs=n_jobs,include_spectrums=include_spectrums,  **param_spectra_params, **psd_normalize_kwargs) 
     foooftime = time.time()-st
 
     print(f"Finished running all FOOOF in {time.time() -st} seconds")
@@ -420,5 +473,13 @@ def main(n_jobs=1, tables_folder='data/tables/'):
         'data_params': data_params,
         'epochs_params': epochs_params,
         'normalization_kwargs': normalization_kwargs,
+        'our_fit_times': our_fit_times,
+        'fooof_fit_times': fooof_fit_times,
+        'our_fitted_spectra': our_fitted_spectra,
+        'fooof_fitted_spectra': fooof_fitted_spectra,
     }
     return out_dict
+
+if __name__ == '__main__':
+    out_dict= main()
+    print("DONE")
