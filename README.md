@@ -12,7 +12,7 @@ conda activate canon_param
 pip install -e .
 ```
 
-See the notebooks/0.0-demo-BandParams.ipynb for a demonstration of the BandParams / CanonParams class. Haven't settled on a name yet.
+See the [notebooks/0.0-demo-BandParams.ipynb](https://github.com/aroyphillips/CanonParam/blob/main/notebooks/0.0.0-demo-CanonParams.ipynb) for a demonstration of the BandParams / CanonParams class. Haven't settled on a name yet.
 
 ## Project Organization
 
