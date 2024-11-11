@@ -8,6 +8,8 @@ To get started, clone this repository and create a new conda environment with th
 
 ```
 conda env create -f environment.yml
+conda activate canon_param
+pip install -e .
 ```
 
 See the notebooks/0.0-demo-BandParams.ipynb for a demonstration of the BandParams / CanonParams class. Haven't settled on a name yet.
