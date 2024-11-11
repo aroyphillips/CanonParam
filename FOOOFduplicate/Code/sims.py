@@ -80,12 +80,52 @@ def gen_peak_def(n_peaks_to_gen=None):
 
         yield peaks
 
+## This function is added by AT, to generate one peak per each band:
+def gen_band_peak_def(bands=[(1, 4), (4, 8), (8, 12.5), (12.5, 30), (30, 70), (70, 150), (150, 250)]):
+    """Generator for plausible peak parameters for simulated power spectra.
+
+    Parameters
+    ----------
+    bands : a list of tuples, optional
+        The bands at which the peaks will be generated.
+
+    Yields
+    ------
+    peaks : list of list of [float, float, float], or []
+        Peak definitions.
+    """
+
+    # Generate peak definitions
+    while True:
+
+        peaks = []
+
+        n_peaks = len(bands)
+
+        for peak in range(n_peaks):
+            
+            cf_opts = np.arange(bands[peak][0], bands[peak][1], 1)
+
+            cur_cen = np.random.choice(cf_opts)
+
+            cur_pw = np.random.choice(PW_OPTS, p=PW_PROBS)
+            cur_bw = np.random.choice(BW_OPTS, p=BW_PROBS)
+
+            peaks.append([cur_cen, cur_pw, cur_bw])
+
+        peaks = [item for sublist in peaks for item in sublist]
+
+        yield peaks
+## finished editing by AT
 
 def gen_peak_def_high():
     """Generator for high frequency peaks."""
 
+    # high_cf_opts = np.arange(50, 90, 1)
+    ## AT changed the parameters here:
     high_cf_opts = np.arange(50, 90, 1)
-
+    ## finished editing by AT
+    
     # Generate peak definitions
     while True:
 

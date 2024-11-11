@@ -19,7 +19,9 @@ FOLDER_NAMES = ['01_one-peak', '02_multi-peak', '03_knee', '04_mv-ap',
 
 FOOOF_SETTINGS = FOOOFSettings(
     peak_width_limits=[1, 8],
-    max_n_peaks=6,
+    ## AT has changed the max_n_peaks from 6 to 7 (for the case of multi-peak)
+    max_n_peaks=7,
+    ## finished changing by AT
     min_peak_height=0.1,
     peak_threshold=2.0,
     aperiodic_mode='fixed')
@@ -37,14 +39,18 @@ FOOOF_SETTINGS_KNEE = FOOOFSettings(
 N_PSDS = 1000
 
 # Simulation Settings
-F_RANGE = [2, 40]
+F_RANGE = [1, 250]
 F_RES = 0.25
 F_RANGE_LONG = [1, 100]
 F_RES_LONG = 0.5
 
 # Set the condition values
 NLVS = [0.0, 0.025, 0.050, 0.10, 0.15]
-N_PEAKS = [0, 1, 2, 3, 4]
+# N_PEAKS = [0, 1, 2, 3, 4]
+## This part is by AT:
+N_PEAKS = [7]
+## finished editing by AT
+
 KNEES = [0, 10, 50, 100, 150]
 RDSYMS = [0.5, 0.625, 0.75, 0.875, 1.0]
 SKEWS = [0, 5, 10, 25, 50]
@@ -57,6 +63,7 @@ N_PEAK_OPTS = [0, 1, 2]
 N_PEAK_PROBS = [1/3, 1/3, 1/3]
 
 # Load the distribution of center frequencies to use
+## AT has changed the files that are being loaded from the data folder
 CF_OPTS = np.load(pkg_resources.resource_filename(__name__, 'data/freqs.npy'))
 CF_PROBS = np.load(pkg_resources.resource_filename(__name__, 'data/probs.npy'))
 
@@ -94,3 +101,5 @@ YTICKS_KN = [0.0001, 0.01, 1, 100, 10000]
 YTICKS_CF = [0.0001, 0.001, 0.01, 0.1, 1, 10]
 YTICKS_PW = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10]
 YTICKS_BW = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10]
+# The next line was added by AT
+# YTICKS_FE = [0, 0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2]

@@ -159,6 +159,7 @@ def calc_errors(truths, models, approach='abs'):
     return errors
 
 
+
 def get_ground_truth(sim_params):
     """Extract settings used to generated data (ground truth values)."""
 
@@ -169,7 +170,9 @@ def get_ground_truth(sim_params):
         pe_truths.append([psd_params.periodic_params for psd_params in params])
         ap_truths.append([psd_params.aperiodic_params for psd_params in params])
 
+    ## AT has commented this part only for the case of multiple peaks! Make sure to uncomment it for the case of single peak
     pe_truths = np.squeeze(np.array(pe_truths))
+    ## Finished commenting by AT
     ap_truths = np.array(ap_truths)
 
     return pe_truths, ap_truths
@@ -201,6 +204,48 @@ def get_fit_data(fgs, f_range=F_RANGE):
     n_peaks = np.array(n_peaks)
 
     return peak_fits, ap_fits, err_fits, r2_fits, n_peaks
+
+## AT has added this function to extract the fit data for the case of multiple peaks
+def get_fit_data_AT(fgs, f_range=F_RANGE):
+    """Extract fit results fit to simulated data."""
+
+    # Extract data of interest from FOOOF fits
+    peak_fits = np.NaN * np.ones((len(fgs), 1000, 7, 3))
+    ap_fits = []
+    err_fits = []
+    r2_fits = []
+    n_peaks = []
+    i = 0
+    for fg in fgs:
+        # peak_fits.append(get_band_peak_fg(fg, f_range, attribute='gaussian_params'))
+
+        # peaks = np.empty((0, 3))
+        peaks = np.NaN * np.ones((1000, 7, 3))
+        j = 0
+        for f_res in fg:  
+            # peaks = np.vstack((peaks, get_band_peak(f_res.gaussian_params, f_range, select_highest=False)))
+            peaks[:,j,:] = np.array(get_band_peak(f_res.gaussian_params, f_range, select_highest=False))
+            print('peaks:', peaks[:,j,:])
+            j = j + 1
+        # peak_fits.append(peaks)
+        print(peaks.shape)
+        peak_fits[i, :, :, :] = peaks
+        print('i: ', i)
+        i = i + 1
+        
+        ap_fits.append(fg.get_params('aperiodic_params'))
+        err_fits.append(fg.get_params('error'))
+        r2_fits.append(fg.get_params('r_squared'))
+        n_peaks.append(fg.n_peaks_)
+
+    peak_fits = np.array(peak_fits)
+    ap_fits = np.array(ap_fits)
+    err_fits = np.array(err_fits)
+    r2_fits = np.array(r2_fits)
+    n_peaks = np.array(n_peaks)
+
+    return peak_fits, ap_fits, err_fits, r2_fits, n_peaks
+
 
 
 def count_peak_conditions(n_fit_peaks, conditions):

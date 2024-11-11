@@ -81,7 +81,7 @@ def plot_errors(data, title='Data', avg='mean', err='sem', save_fig=False, save_
 
 
 def plot_errors_violin(data, title=None, x_axis='nlvs', x_ticks=[], y_label=None, yticks=None,
-                       plt_log=False, ylim=None, ax=None, save_fig=False, save_name=None):
+                       plt_log=False, ylim=None, ax=None, save_fig=False, save_name=None, ifOrange=False):
     """Plots errors across distributions of fit data, as full distributions (as violin plot)."""
 
     if not ax:
@@ -94,9 +94,10 @@ def plot_errors_violin(data, title=None, x_axis='nlvs', x_ticks=[], y_label=None
         data[np.isinf(data)] = 0
 
     # Create the violinplot
-    ax = sns.violinplot(data=data.T, cut=0, scale='area', linewidth=2.5,
+    ## AT has changed scale to density_norm 
+    ax = sns.violinplot(data=data.T, cut=0, density_norm='area', linewidth=2.5,
                         color='#0c69ff', saturation=0.75, ax=ax)
-
+    ## finished editing by AT
     # Overlay extra dots on the median values, to make them bigger
     ax.plot(np.arange(0, data.shape[0]), np.nanmedian(data, 1),
             '.', c='white', ms=20, alpha=1)
@@ -125,7 +126,6 @@ def plot_errors_violin(data, title=None, x_axis='nlvs', x_ticks=[], y_label=None
         raise ValueError('x_axis setting not understood.')
 
     if plt_log:
-
         # Update the label representation
         cur_tick_locs = ax.get_yticks()
         cur_tick_labels = ax.get_yticklabels()
@@ -133,7 +133,6 @@ def plot_errors_violin(data, title=None, x_axis='nlvs', x_ticks=[], y_label=None
         ytick_labels = np.power(10, cur_tick_locs) if not yticks else yticks
         ax.set_yticks(ytick_locs)
         ax.set_yticklabels(ytick_labels)
-
     if ylim is not None:
         ax.set_ylim(ylim)
 
@@ -143,10 +142,90 @@ def plot_errors_violin(data, title=None, x_axis='nlvs', x_ticks=[], y_label=None
         y_label = 'Error'
     ax.set_ylabel(y_label)
 
+    ## This part was added by AT for changing the color of the plot
+    # change the violin plot color to orange
+    if ifOrange:
+        for pc in ax.collections:
+            pc.set_facecolor('#ff7f0e')
+    ## finished adding by AT
+
     plot_style(ax)
 
     if save_fig:
 
+        save_name = FIGS_PATH + save_name + SAVE_EXT
+        plt.savefig(save_name, bbox_inches='tight')
+
+
+## This function is written by AT to do a comparison plot between SpecParam and our method
+def plot_comparison_violin_AT(data1, data2, labels, title=None, x_axis='nlvs', x_ticks=[], y_label=None, yticks=None,
+                           plt_log=False, ylim=None, ax=None, save_fig=False, save_name=None, ifOrange=False):
+    """Plots a comparison of errors across two distributions of fit data for each category (as violin plots)."""
+
+    if not ax:
+        fig, ax = plt.subplots(figsize=[10, 6])
+
+    if plt_log:
+        # Log transform data & remap any infs (coming from value 0) back to value of 0
+        data1 = np.log10(data1)
+        data2 = np.log10(data2)
+        data1[np.isinf(data1)] = 0
+        data2[np.isinf(data2)] = 0
+
+    # Prepare data for plotting
+    all_data = []
+    group_labels = []
+    method_labels = []
+
+    # Flatten the data and create labels
+    for i in range(data1.shape[0]):
+        all_data.extend(data1[i])
+        all_data.extend(data2[i])
+        group_labels.extend([i] * data1.shape[1])
+        group_labels.extend([i] * data2.shape[1])
+        method_labels.extend([labels[0]] * data1.shape[1])
+        method_labels.extend([labels[1]] * data2.shape[1])
+
+    # Create the violin plot
+    sns.violinplot(x=group_labels, y=all_data, hue=method_labels,
+                   split=False, cut=0, linewidth=2.5, inner="quartile", ax=ax)
+    
+    # Update x-ticks and labels
+    ax.set_xticks(np.arange(data1.shape[0]))
+    if x_axis == 'nlvs':
+        ax.set_xticklabels(NLVS)
+        ax.set_xlabel('Noise Levels')
+    elif x_axis == 'n_peaks':
+        ax.set_xticklabels(N_PEAKS)
+        ax.set_xlabel('Number of Peaks')
+    # Add more conditions as needed...
+
+    if plt_log:
+        cur_tick_locs = ax.get_yticks()
+        cur_tick_labels = ax.get_yticklabels()
+        ytick_locs = cur_tick_locs if not yticks else np.log10(yticks)
+        ytick_labels = np.power(10, cur_tick_locs) if not yticks else yticks
+        ax.set_yticks(ytick_locs)
+        ax.set_yticklabels(ytick_labels)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+
+    if title:
+        ax.set_title(title)
+    if not y_label:
+        y_label = 'Error'
+    ax.set_ylabel(y_label)
+    plt.legend(fontsize=13)  # You can adjust the fontsize value as needed
+
+    # Apply color changes if specified
+    if ifOrange:
+        for i, pc in enumerate(ax.collections):
+            if method_labels[i] == labels[0]:  # Apply to the first method's violins
+                pc.set_facecolor('#ff7f0e')
+
+    plot_style(ax)
+
+    if save_fig:
         save_name = FIGS_PATH + save_name + SAVE_EXT
         plt.savefig(save_name, bbox_inches='tight')
 
